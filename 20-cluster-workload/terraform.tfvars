@@ -26,14 +26,22 @@ eks_nodegroup_max_size       = 4
 # ---------------------------------------------------------------
 # ECR Variable Zone
 # ---------------------------------------------------------------
-ecr_repository_names             = []
+ecr_repository_names = [
+  "shopnow/shopnow-frontend",
+  "shopnow/shopnow-api-gateway",
+  "shopnow/shopnow-config-server",
+  "shopnow/shopnow-discovery-server",
+  "shopnow/shopnow-product-service",
+  "shopnow/shopnow-shopping-cart-service",
+  "shopnow/shopnow-user-service",
+]
 ecr_image_tag_mutability         = "MUTABLE"
 ecr_lifecycle_policy_image_count = 10
 
 # ---------------------------------------------------------------
 # EFS Variable Zone
 # ---------------------------------------------------------------
-efs_create           = false
+efs_create           = true
 efs_transition_to_ia = "AFTER_30_DAYS"
 
 # ---------------------------------------------------------------
