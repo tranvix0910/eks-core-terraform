@@ -37,16 +37,8 @@ internal_observability_alb_name = null
 # Tags Zone
 # ---------------------------------------------------------------
 tags = {
-  "env"               = "dev"
-  "cost_center"       = "na"
-  "vended"            = "true"
-  "app_name"          = "eks-observability"
-  "business_critical" = "na"
-  "business_unit"     = "na"
-  "managed_by"        = "it-cloud-aws"
-  "approval_ticket"   = "na"
-  "owner"             = "tranvix0910"
-  "created_by"        = "Terraform"
-  "support_for_apps"  = "na"
-  "project"           = "eks"
+  "project"    = "eks"
+  "env"        = "dev"
+  "owner"      = "tranvix0910"
+  "managed_by" = "terraform"
 }
