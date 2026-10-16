@@ -1,2 +1,2 @@
-aws_account_id = "<AWS_ACCOUNT_ID>"
-# aws_profile  = "eks-core"
+account_id = "<AWS_ACCOUNT_ID>"
+# aws_profile = "eks-core"

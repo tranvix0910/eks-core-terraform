@@ -1,39 +1,91 @@
-variable "environment" {
-  description = "Deployment environment. Drives naming and tagging."
+# ---------------------------------------------------------------
+# General
+# ---------------------------------------------------------------
+variable "region" {
   type        = string
+  description = "AWS region hosting the VPC"
+}
+
+variable "aws_profile" {
+  type        = string
+  description = "Named profile in ~/.aws/config. Set to null in CI to use the default credential chain"
+  default     = null
+}
+
+variable "account_id" {
+  type        = string
+  description = "The only AWS account this stack is allowed to run against"
+}
+
+variable "env" {
+  type        = string
+  description = "The current environment"
 
   validation {
-    condition     = contains(["dev", "uat", "prod"], var.environment)
-    error_message = "environment must be one of: dev, uat, prod."
+    condition     = contains(["dev", "nprod", "uat", "prod"], var.env)
+    error_message = "env must be one of: dev, nprod, uat, prod."
   }
 }
-variable "aws_profile" {
-  description = <<-EOT
-    Named profile from ~/.aws/config used by the aws provider. Must resolve to
-    var.aws_account_id, the account that owns the state bucket and the VPC.
 
-    Defaulted so the profile lives in code and matches the profile in
-    backend.hcl. Set to null to fall back to the default credential chain
-    (AWS_PROFILE, static env vars, instance/container role) - CI has no
-    ~/.aws/config, so pass -var aws_profile= or TF_VAR_aws_profile= there.
-
-    This covers the provider only. The S3 backend resolves credentials
-    separately and cannot read variables - see backend.tf.
-  EOT
+variable "project" {
   type        = string
-  default     = "eks-core"
+  description = "The project"
 }
 
-variable "aws_account_id" {
-  description = <<-EOT
-    AWS account that owns the state bucket and the VPC. The provider refuses
-    to run against any other account. Set it in account.auto.tfvars
-    (gitignored, see account.auto.tfvars.example).
-  EOT
+variable "tags" {
+  type        = map(string)
+  description = "List of required tags"
+}
+
+# ---------------------------------------------------------------
+# VPC
+# ---------------------------------------------------------------
+variable "vpc_cidr" {
   type        = string
+  description = "CIDR block of the shared VPC"
+}
+
+variable "azs" {
+  type        = list(string)
+  description = "Availability zones, one subnet of each tier per AZ"
+}
+
+variable "public_subnets" {
+  type        = list(string)
+  description = "Public subnet CIDRs (NAT Gateway, internet-facing load balancers), same order as azs"
+}
+
+variable "workload_subnets" {
+  type        = list(string)
+  description = "Private node subnet CIDRs for the workload cluster, same order as azs"
+}
+
+variable "observability_subnets" {
+  type        = list(string)
+  description = "Private node subnet CIDRs for the observability cluster, same order as azs"
+}
+
+variable "single_nat_gateway" {
+  type        = bool
+  description = "One NAT Gateway shared by all AZs (cheap). Set false for one NAT Gateway per AZ"
+  default     = true
+}
+
+variable "enable_flow_log" {
+  type        = bool
+  description = "Enable VPC flow logs to CloudWatch Logs"
+  default     = true
+}
+
+# ---------------------------------------------------------------
+# EKS
+# ---------------------------------------------------------------
+variable "cluster_names" {
+  type        = map(string)
+  description = "Cluster names keyed by role (workload, observability). Also used as karpenter.sh/discovery tag values"
 
   validation {
-    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
-    error_message = "aws_account_id must be a 12-digit AWS account ID."
+    condition     = alltrue([for k in ["workload", "observability"] : contains(keys(var.cluster_names), k)])
+    error_message = "cluster_names must contain the keys workload and observability."
   }
 }

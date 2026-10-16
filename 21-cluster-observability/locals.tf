@@ -1,36 +1,43 @@
 locals {
-  name   = "eks-observability"
-  region = "ap-northeast-1"
+  ### GENERAL
+  name       = data.terraform_remote_state.network.outputs.cluster_names["observability"]
+  account_id = data.aws_caller_identity.current.account_id
 
-  kubernetes_version = "1.34"
-
-  # From layer 10. Never hardcode a subnet id or CIDR that already exists as
-  # an output there - see terraform/10-network/outputs.tf.
+  ### NETWORK (layer 10)
   vpc_id          = data.terraform_remote_state.network.outputs.vpc_id
   vpc_cidr        = data.terraform_remote_state.network.outputs.vpc_cidr
   node_subnet_ids = data.terraform_remote_state.network.outputs.observability_node_subnet_ids
 
-  # From layer 20. Needed for the one cross-cluster piece Terraform owns: a
-  # security group rule letting cluster 1's nodes reach cluster 2's internal
-  # ALB (Mimir remote_write, Loki push). Everything past that rule - the
-  # Ingress objects, the Helm values pointing at the ALB DNS name - is
-  # GitOps/kubectl, same split as everywhere else in this project.
+  ### LAYER 20
   workload_node_security_group_id = data.terraform_remote_state.cluster_workload.outputs.node_security_group_id
 
-  # Lab sizing. This node group runs Mimir + Loki + Grafana - three Java/Go
-  # processes each holding an in-memory index and a handful of goroutines/
-  # threads, not a fleet of user-facing services. 2 nodes rather than 1 for
-  # the same reason cluster 1's infra group is not 1: losing the only node to
-  # an AZ issue or a node upgrade would take down every observability tool at
-  # once, including the ability to see why.
-  monitoring_instance_types = ["t3.medium"]
-  monitoring_desired_size   = 2
+  eks_get_token_args = concat(
+    ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.region],
+    var.aws_profile == null ? [] : ["--profile", var.aws_profile],
+  )
 
-  tags = {
-    Project     = "eks-core"
-    Owner       = "tranvix0910"
-    ManagedBy   = "terraform"
-    Layer       = "21-cluster-observability"
-    Environment = var.environment
+  ### S3 - bucket names are hardcoded in gitops mimir/loki values
+  s3_buckets = {
+    mimir = "${local.name}-mimir-${local.account_id}"
+    loki  = "${local.name}-loki-${local.account_id}"
+  }
+
+  ### EKS ADDONS
+  eks_cluster_addons = {
+    coredns    = {}
+    kube-proxy = {}
+    vpc-cni = {
+      before_compute = true
+      configuration_values = jsonencode({
+        env = {
+          ENABLE_PREFIX_DELEGATION = "true"
+          WARM_PREFIX_TARGET       = "1"
+        }
+      })
+    }
+    eks-pod-identity-agent = {
+      before_compute = true
+    }
+    aws-ebs-csi-driver = {}
   }
 }

@@ -1,33 +1,29 @@
-# VPC shared by both clusters.
-#
-# Decision record: docs/decisions/0002-single-vpc-for-both-clusters.md
-#
-# Three NAT Gateways, one per AZ, shared by both clusters. This is where the
-# saving over a two-VPC design comes from: 3 NAT Gateways instead of 6, and
-# 3 Elastic IPs instead of 6.
+provider "aws" {
+  region              = var.region
+  profile             = var.aws_profile
+  allowed_account_ids = [var.account_id]
 
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 6.6"
+  ignore_tags {
+    key_prefixes = ["kubernetes.io/", "karpenter.sh/"]
+  }
+}
 
-  name = local.name
-  cidr = local.vpc_cidr
-  azs  = local.azs
+terraform {
+  required_version = ">= 1.10, < 2.0"
 
-  public_subnets  = local.public_subnets
-  private_subnets = concat(local.workload_node_subnets, local.observability_node_subnets)
+  # Partial config: bucket and profile come from backend.hcl (gitignored).
+  #   terraform init -backend-config=backend.hcl
+  backend "s3" {
+    key          = "network/terraform.tfstate"
+    region       = "ap-southeast-1"
+    use_lockfile = true
+    encrypt      = true
+  }
 
-  enable_nat_gateway     = true
-  single_nat_gateway     = true
-  one_nat_gateway_per_az = false
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  enable_flow_log                                 = true
-  create_flow_log_cloudwatch_log_group            = true
-  create_flow_log_cloudwatch_iam_role             = true
-  flow_log_cloudwatch_log_group_retention_in_days = 3
-
-  tags = local.tags
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.28"
+    }
+  }
 }

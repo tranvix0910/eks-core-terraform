@@ -1,26 +1,36 @@
 locals {
-  name = "eks-lab"
+  ### GENERAL
+  region_short            = lookup({ "ap-southeast-1" = "sg", "ap-northeast-1" = "jp" }, var.region, var.region)
+  prefix                  = "aws-${local.region_short}-${var.project}-${var.env}"
+  flowlogs_retention_days = var.env == "prod" ? 30 : 3
+  account_id              = data.aws_caller_identity.current.account_id
 
-  region = "ap-northeast-1"
+  ### SUBNET NAMES
+  az_suffix                  = [for az in var.azs : substr(az, -1, 1)]
+  public_subnet_names        = [for s in local.az_suffix : "${local.prefix}-public-subnet-${s}"]
+  workload_subnet_names      = [for s in local.az_suffix : "${local.prefix}-workload-subnet-${s}"]
+  observability_subnet_names = [for s in local.az_suffix : "${local.prefix}-observability-subnet-${s}"]
+}
 
-  azs = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+locals {
+  ### SUBNET ID MAPS
+  # private_subnets order: workload first, then observability
+  workload_subnet_ids = slice(module.vpc.private_subnets, 0, length(var.workload_subnets))
+  observability_subnet_ids = slice(
+    module.vpc.private_subnets,
+    length(var.workload_subnets),
+    length(var.workload_subnets) + length(var.observability_subnets),
+  )
 
-  vpc_cidr = "10.20.0.0/16"
-
-  public_subnets = ["10.20.0.0/24", "10.20.1.0/24", "10.20.2.0/24"]
-
-  workload_node_subnets      = ["10.20.16.0/20", "10.20.32.0/20", "10.20.48.0/20"]
-  observability_node_subnets = ["10.20.64.0/20", "10.20.80.0/20", "10.20.96.0/20"]
-
-  clusters = {
-    workload      = "eks-workload"
-    observability = "eks-observability"
+  # Keyed by CIDR so for_each keys are known at plan time
+  workload_subnets_by_cidr = {
+    for idx, cidr in var.workload_subnets : cidr => module.vpc.private_subnets[idx]
   }
-
-  tags = {
-    Project     = "eks-core"
-    Owner       = "tranvix0910"
-    ManagedBy   = "terraform"
-    Environment = var.environment
+  observability_subnets_by_cidr = {
+    for idx, cidr in var.observability_subnets : cidr => module.vpc.private_subnets[idx + length(var.workload_subnets)]
   }
+  public_subnets_by_cidr = {
+    for idx, cidr in var.public_subnets : cidr => module.vpc.public_subnets[idx]
+  }
+  private_subnets_by_cidr = merge(local.workload_subnets_by_cidr, local.observability_subnets_by_cidr)
 }

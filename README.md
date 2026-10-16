@@ -1,68 +1,17 @@
-# eks-core-terraform
+# Terraform in the EKS Workshop
 
-Terraform for the EKS Core platform: the network and the two EKS clusters, split into layers by blast radius. A change to a cluster layer never touches the VPC.
+Terraform creates the network and two clusters, plus selected Helm releases and StorageClasses. Start with the [prerequisites](https://tranvix0910.github.io/eks-core-docs/docs/architecture/organizational-constraints-and-prerequisites) and apply layers in dependency order.
 
-| Layer | Responsibility | State key (bucket `eks-tfstate-<AWS_ACCOUNT_ID>`) |
-|---|---|---|
-| **`10-network`** | VPC `10.20.0.0/16`, subnets, NAT gateway, VPC endpoints, subnet tags, flow logs | `network/terraform.tfstate` |
-| **`20-cluster-workload`** | EKS `eks-workload`, managed node group `infra`, IAM, SQS, ECR, EFS, Pod Identity | `cluster-workload/terraform.tfstate` |
-| **`21-cluster-observability`** | EKS `eks-observability`, node group `monitoring`, S3 buckets for Mimir/Loki | `cluster-observability/terraform.tfstate` |
+| Layer | Purpose | State key | Lab |
+|---|---|---|---|
+| `10-network` | Shared network, subnets, NAT, and endpoints | `network/terraform.tfstate` | [Step 1](https://tranvix0910.github.io/eks-core-docs/docs/architecture/layer-10-network) |
+| `20-cluster-workload` | EKS, infrastructure nodes, IAM/Karpenter, EFS/ECR, and platform releases | `cluster-workload/terraform.tfstate` | [Step 2](https://tranvix0910.github.io/eks-core-docs/docs/architecture/layer-20-cluster-workload) |
+| `21-cluster-observability` | EKS, monitoring nodes, S3, receivers, and private DNS | `cluster-observability/terraform.tfstate` | [Step 3](https://tranvix0910.github.io/eks-core-docs/docs/architecture/layer-21-cluster-observability) |
 
-Layers read earlier layers' outputs through `terraform_remote_state`; never duplicate a value an earlier layer already outputs.
+Fresh bootstrap: network → AWS foundation 20 → AWS foundation 21 → full 20 → prerequisites 21 → full 21. Foundation targeting is an exception required by the current state/provider structure. Review a full plan afterward.
 
-## Related repositories
+For ongoing changes: initialize when needed → format and validate → save a plan → review → apply → verify running workloads. Backend and provider configuration lives in `main.tf` and `provider.tf`; outputs currently use `output.tf`. Older documentation filenames do not establish whether a resource exists.
 
-| Repository | Contents |
-|---|---|
-| [eks-core-docs](https://github.com/tranvix0910/eks-core-docs) | Documentation — [published site](https://tranvix0910.github.io/eks-core-docs/) |
-| **eks-core-terraform** | This repository |
-| [eks-core-gitops](https://github.com/tranvix0910/eks-core-gitops) | ArgoCD, add-ons, Karpenter node pools, ShopNow Helm charts |
-| [eks-core-apps](https://github.com/tranvix0910/eks-core-apps) | ShopNow service source code and image build script |
+Layer 20 disables EFS and creates no ECR repositories by default; enable them as described in the workshop. Update account-specific ARNs, buckets, and endpoints consistently. Keep `.terraform`, plans, state, and private keys out of Git.
 
-## Account-specific values
-
-Nothing account-specific is committed. Each layer reads it from two gitignored files; copy the examples and fill them in:
-
-```bash
-for layer in 10-network 20-cluster-workload 21-cluster-observability; do
-  cp $layer/backend.hcl.example        $layer/backend.hcl
-  cp $layer/account.auto.tfvars.example $layer/account.auto.tfvars
-done
-```
-
-| File | Holds |
-|---|---|
-| `backend.hcl` | State bucket `eks-tfstate-<AWS_ACCOUNT_ID>` and the AWS profile for the S3 backend |
-| `account.auto.tfvars` | `aws_account_id` (the provider refuses any other account) and, optionally, `aws_profile` |
-
-The default AWS profile name is `eks-core`.
-
-## Deploy
-
-```bash
-./scripts/check-prereqs.sh
-./scripts/bootstrap-backend.sh      # once: creates the state bucket
-
-cd 10-network
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
-```
-
-Then `20-cluster-workload`, then `21-cluster-observability`, in that order.
-
-`21-cluster-observability/tls.tf` expects the ACM-imported certificate files in `certs/` at the repository root (gitignored).
-
-## File layout per layer
-
-```
-versions.tf          Terraform and provider versions, provider config
-backend.tf           S3 backend (partial; completed by backend.hcl)
-variables.tf         Input variables
-locals.tf            Naming, tags, derived values
-main.tf              Resources
-outputs.tf           Outputs consumed by later layers
-terraform.tfvars     Non-secret environment values
-```
-
-Full walkthrough: [Tokyo region migration runbook](https://tranvix0910.github.io/eks-core-docs/docs/operations/tokyo-region-migration-runbook).
+Read [cleanup and circular dependencies](https://tranvix0910.github.io/eks-core-docs/docs/operations/lifecycle-and-cleanup) before destroying resources. Deleting clusters before applications and load balancers can leave resources outside Terraform state.

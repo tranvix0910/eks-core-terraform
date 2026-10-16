@@ -1,42 +1,143 @@
-variable "environment" {
-  description = "Deployment environment. Drives naming and tagging."
+# ---------------------------------------------------------------
+# General
+# ---------------------------------------------------------------
+variable "region" {
   type        = string
-
-  validation {
-    condition     = contains(["dev", "uat", "prod"], var.environment)
-    error_message = "environment must be one of: dev, uat, prod."
-  }
+  description = "AWS region hosting the cluster"
 }
 
 variable "aws_profile" {
-  description = <<-EOT
-    Named profile from ~/.aws/config used by the aws provider. Must resolve to
-    var.aws_account_id, the account that owns the state bucket and the VPC.
-
-    Defaulted so the profile lives in code and matches the profile in
-    backend.hcl. Set to null to fall back to the default credential chain
-    (AWS_PROFILE, static env vars, instance/container role) - CI has no
-    ~/.aws/config, so pass -var aws_profile= or TF_VAR_aws_profile= there.
-
-    This covers the provider only. The S3 backend resolves credentials
-    separately and cannot read variables - see backend.tf.
-  EOT
   type        = string
-  default     = "eks-core"
+  description = "Named profile in ~/.aws/config. Set to null in CI to use the default credential chain"
+  default     = null
 }
 
-variable "aws_account_id" {
-  description = <<-EOT
-    AWS account that owns the state bucket and the VPC. The provider refuses
-    to run against any other account. Set it in account.auto.tfvars
-    (gitignored, see account.auto.tfvars.example).
-  EOT
+variable "account_id" {
   type        = string
+  description = "The only AWS account this stack is allowed to run against"
+}
+
+variable "env" {
+  type        = string
+  description = "The current environment"
 
   validation {
-    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
-    error_message = "aws_account_id must be a 12-digit AWS account ID."
+    condition     = contains(["dev", "nprod", "uat", "prod"], var.env)
+    error_message = "env must be one of: dev, nprod, uat, prod."
   }
+}
+
+variable "project" {
+  type        = string
+  description = "The project"
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "List of required tags"
+}
+
+# ---------------------------------------------------------------
+# EKS
+# ---------------------------------------------------------------
+variable "eks_kubernetes_version" {
+  type        = string
+  description = "Kubernetes version of the EKS cluster"
+}
+
+variable "eks_endpoint_public_access" {
+  type        = bool
+  description = "Enable public access to the cluster endpoint"
+  default     = true
+}
+
+variable "eks_enabled_log_types" {
+  type        = list(string)
+  description = "Control plane log types to enable"
+  default     = ["api", "audit", "authenticator"]
+}
+
+variable "eks_cloudwatch_log_group_retention_in_days" {
+  type        = number
+  description = "Retention of the control plane log group"
+  default     = 7
+}
+
+variable "eks_extension_apiserver_ports" {
+  type        = list(number)
+  description = "Extra ports nodes accept from the control plane for aggregated APIServices (e.g. Rancher 6666)"
+  default     = []
+}
+
+# ---------------------------------------------------------------
+# EKS Node Group
+# ---------------------------------------------------------------
+variable "eks_nodegroup_instance_types" {
+  type        = list(string)
+  description = "Instance types of the infra node group"
+}
+
+variable "eks_nodegroup_capacity_type" {
+  type        = string
+  description = "ON_DEMAND or SPOT"
+  default     = "ON_DEMAND"
+}
+
+variable "eks_nodegroup_ami_type" {
+  type        = string
+  description = "AMI type of the infra node group"
+  default     = "AL2023_x86_64_STANDARD"
+}
+
+variable "eks_nodegroup_desired_size" {
+  type        = number
+  description = "Desired number of infra nodes"
+}
+
+variable "eks_nodegroup_min_size" {
+  type        = number
+  description = "Minimum number of infra nodes"
+}
+
+variable "eks_nodegroup_max_size" {
+  type        = number
+  description = "Maximum number of infra nodes"
+}
+
+# ---------------------------------------------------------------
+# ECR
+# ---------------------------------------------------------------
+variable "ecr_repository_names" {
+  type        = list(string)
+  description = "ECR repositories to create. Empty list creates none"
+  default     = []
+}
+
+variable "ecr_image_tag_mutability" {
+  type        = string
+  description = "The tag mutability setting for the ECR repositories"
+  default     = "MUTABLE"
+}
+
+variable "ecr_lifecycle_policy_image_count" {
+  type        = number
+  description = "Number of images to keep per repository"
+  default     = 10
+}
+
+# ---------------------------------------------------------------
+# EFS
+# ---------------------------------------------------------------
+variable "efs_create" {
+  type        = bool
+  description = "Create the shared EFS file system and its efs-sc StorageClass"
+  default     = false
+}
+
+variable "efs_transition_to_ia" {
+  type        = string
+  description = "Move files to Infrequent Access after this long untouched"
+  default     = "AFTER_30_DAYS"
 }
 
 variable "gitops_repo_path" {
