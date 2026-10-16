@@ -1,0 +1,34 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Real account values stay on your machine (see the *.example files)
+*.auto.tfvars
+*.secret.tfvars
+backend.hcl
+
+# Certificates imported into ACM (see 21-cluster-observability/tls.tf)
+certs/
+*.pem
+*.key
+
+# Kubernetes
+kubeconfig
+kubeconfig-*
+*.kubeconfig
+
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/

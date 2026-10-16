@@ -1,0 +1,2 @@
+bucket  = "eks-tfstate-<AWS_ACCOUNT_ID>"
+profile = "eks-core"
