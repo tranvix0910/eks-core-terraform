@@ -1,0 +1,4 @@
+# Copy to kite.auto.tfvars (gitignored), replace the example with your allowed
+# public IPv4 CIDR, then plan/apply layer 20. No CIDR means no public access.
+kite_ingress_enabled = false
+kite_admin_cidrs     = []

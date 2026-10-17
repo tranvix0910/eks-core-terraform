@@ -137,7 +137,7 @@ resource "helm_release" "metrics_server" {
 }
 
 # ---------------------------------------------------------------
-# Kite dashboard - not exposed until a private hostname + ACM cert exist
+# Kite dashboard - optional ALB access is managed in kite_ingress.tf
 # ---------------------------------------------------------------
 resource "kubernetes_namespace_v1" "kite" {
   metadata {

@@ -14,4 +14,15 @@ For ongoing changes: initialize when needed → format and validate → save a p
 
 Layer 20 disables EFS and creates no ECR repositories by default; enable them as described in the workshop. Update account-specific ARNs, buckets, and endpoints consistently. Keep `.terraform`, plans, state, and private keys out of Git.
 
+Kite's Helm release and optional ALB Ingress are both managed by layer 20.
+Public access is disabled by default. Copy
+`20-cluster-workload/kite.auto.tfvars.example` to the gitignored
+`kite.auto.tfvars` in that directory, enable `kite_ingress_enabled`, and set
+`kite_admin_cidrs` to the allowed IPv4 CIDRs. The Ingress joins the shared admin
+ALB on HTTP port 8088; CIDR filtering does not encrypt traffic. Import an existing
+manual `kite-system/kite` Ingress into `kubernetes_ingress_v1.kite[0]` before
+applying, and do not also manage it through Helm or GitOps. See
+[step 2.5](https://tranvix0910.github.io/eks-core-docs/docs/platform-addons/kite-dashboard)
+for import, full plan review, verification, CIDR changes, and disabling access.
+
 Read [cleanup and circular dependencies](https://tranvix0910.github.io/eks-core-docs/docs/operations/lifecycle-and-cleanup) before destroying resources. Deleting clusters before applications and load balancers can leave resources outside Terraform state.
