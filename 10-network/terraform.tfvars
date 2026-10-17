@@ -31,6 +31,6 @@ cluster_names = {
 tags = {
   "project"    = "eks"
   "env"        = "dev"
-  "owner"      = "tranvix0910"
+  "owner"      = "vi.trandai"
   "managed_by" = "terraform"
 }

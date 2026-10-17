@@ -39,6 +39,6 @@ internal_observability_alb_name = null
 tags = {
   "project"    = "eks"
   "env"        = "dev"
-  "owner"      = "tranvix0910"
+  "owner"      = "vi.trandai"
   "managed_by" = "terraform"
 }

@@ -11,8 +11,6 @@ provider "aws" {
 terraform {
   required_version = ">= 1.10, < 2.0"
 
-  # Partial config: bucket and profile come from backend.hcl (gitignored).
-  #   terraform init -backend-config=backend.hcl
   backend "s3" {
     key          = "network/terraform.tfstate"
     region       = "ap-southeast-1"
