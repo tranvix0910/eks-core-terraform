@@ -137,86 +137,6 @@ resource "helm_release" "metrics_server" {
 }
 
 # ---------------------------------------------------------------
-# Kite dashboard - not exposed until a private hostname + ACM cert exist
-# ---------------------------------------------------------------
-resource "kubernetes_namespace_v1" "kite" {
-  metadata {
-    name = "kite-system"
-  }
-
-  depends_on = [helm_release.aws_load_balancer_controller]
-}
-
-resource "random_password" "kite_jwt" {
-  length  = 64
-  special = false
-}
-
-resource "random_password" "kite_encryption" {
-  length  = 64
-  special = false
-}
-
-resource "kubernetes_secret_v1" "kite" {
-  metadata {
-    name      = "kite"
-    namespace = kubernetes_namespace_v1.kite.metadata[0].name
-  }
-
-  type = "Opaque"
-
-  data = {
-    JWT_SECRET       = random_password.kite_jwt.result
-    KITE_ENCRYPT_KEY = random_password.kite_encryption.result
-    DB_TYPE          = "sqlite"
-  }
-}
-
-resource "helm_release" "kite" {
-  name       = "kite"
-  repository = "oci://ghcr.io/kite-org/charts"
-  chart      = "kite"
-  version    = "0.15.0"
-  namespace  = kubernetes_namespace_v1.kite.metadata[0].name
-
-  wait    = true
-  atomic  = true
-  timeout = 900
-
-  values = [yamlencode({
-    # SQLite on a RWO PVC: single replica, Recreate on upgrade
-    replicaCount       = 1
-    deploymentStrategy = { type = "Recreate" }
-    secret = {
-      create         = false
-      existingSecret = kubernetes_secret_v1.kite.metadata[0].name
-    }
-    db = {
-      type = "sqlite"
-      sqlite = {
-        persistence = {
-          pvc = {
-            enabled      = true
-            storageClass = kubernetes_storage_class_v1.gp3.metadata[0].name
-            accessModes  = ["ReadWriteOnce"]
-            size         = "5Gi"
-          }
-        }
-      }
-    }
-    nodeSelector = { role = "infra" }
-    tolerations  = local.critical_addons_toleration
-    resources = {
-      requests = { cpu = "250m", memory = "256Mi" }
-      limits   = { memory = "512Mi" }
-    }
-    ingress = { enabled = false }
-  })]
-
-  depends_on = [kubernetes_secret_v1.kite]
-}
-
-# ---------------------------------------------------------------
 # Grafana - separate from kube-prometheus-stack (Grafana disabled there)
 # ---------------------------------------------------------------
 resource "random_password" "grafana_admin" {
@@ -288,7 +208,6 @@ resource "helm_release" "grafana" {
   depends_on = [kubernetes_secret_v1.grafana_admin]
 }
 
-# TODO: HTTP + 0.0.0.0/0 for lab only - add ACM/HTTPS and restrict inbound-cidrs
 resource "kubernetes_ingress_v1" "grafana" {
   metadata {
     name      = "grafana"
