@@ -44,7 +44,10 @@ resource "helm_release" "aws_load_balancer_controller" {
     }
   })]
 
-  depends_on = [module.lb_controller_pod_identity]
+  depends_on = [
+    module.eks,
+    module.lb_controller_pod_identity,
+  ]
 }
 
 resource "helm_release" "prometheus" {
@@ -61,7 +64,10 @@ resource "helm_release" "prometheus" {
 
   values = [replace(file("${local.gitops_dir}/platform/observability/prometheus/values.yaml"), "<AWS_ACCOUNT_ID>", var.account_id)]
 
-  depends_on = [kubernetes_storage_class_v1.gp3]
+  depends_on = [
+    kubernetes_storage_class_v1.gp3,
+    helm_release.aws_load_balancer_controller,
+  ]
 }
 
 resource "helm_release" "mimir" {
@@ -80,6 +86,7 @@ resource "helm_release" "mimir" {
   depends_on = [
     kubernetes_storage_class_v1.gp3,
     module.s3_pod_identity,
+    helm_release.aws_load_balancer_controller,
   ]
 }
 
@@ -99,7 +106,19 @@ resource "helm_release" "loki" {
   depends_on = [
     kubernetes_storage_class_v1.gp3,
     module.s3_pod_identity,
+    helm_release.aws_load_balancer_controller,
   ]
+}
+
+resource "kubernetes_config_map_v1" "enterprise_workload_dashboard" {
+  metadata {
+    name      = "enterprise-workload-dashboard"
+    namespace = kubernetes_namespace_v1.monitoring.metadata[0].name
+  }
+
+  data = {
+    "enterprise-workload-360.json" = file("${local.gitops_dir}/platform/observability/grafana/dashboards/enterprise-workload-360.json")
+  }
 }
 
 resource "helm_release" "grafana" {
@@ -118,5 +137,6 @@ resource "helm_release" "grafana" {
   depends_on = [
     helm_release.mimir,
     helm_release.loki,
+    kubernetes_config_map_v1.enterprise_workload_dashboard,
   ]
 }
