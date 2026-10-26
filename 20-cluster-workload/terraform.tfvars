@@ -1,5 +1,5 @@
 region      = "ap-northeast-1"
-aws_profile = "vitrandai-vib"
+aws_profile = "eks-core"
 
 env     = "dev"
 project = "eks"
