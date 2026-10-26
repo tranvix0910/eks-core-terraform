@@ -30,6 +30,16 @@ module "eks" {
       desired_size = var.eks_nodegroup_desired_size
 
       labels = { role = "infra" }
+
+      # Keep application Pods off the platform nodes; every platform chart
+      # already tolerates this taint (local.critical_addons_toleration).
+      taints = {
+        critical_addons_only = {
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }
+      }
     }
   }
 
